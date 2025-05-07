@@ -1,0 +1,10 @@
+[2025-05-07 20:14:11] ErrorException: Undefined variable $titl in D:\wamp64\www\test\mvc-php\src\Views\home\about.php on line 2
+#0 D:\wamp64\www\test\mvc-php\src\Views\home\about.php(2): Core\ErrorHandler->handleError(2, 'Undefined varia...', 'D:\\wamp64\\www\\t...', 2)
+#1 D:\wamp64\www\test\mvc-php\src\Core\View.php(43): include('D:\\wamp64\\www\\t...')
+#2 D:\wamp64\www\test\mvc-php\src\Core\Controller.php(20): Core\View->render('home/about', Array)
+#3 D:\wamp64\www\test\mvc-php\src\Controllers\HomeController.php(19): Core\Controller->render('home/about', Array)
+#4 [internal function]: Controllers\HomeController->about()
+#5 D:\wamp64\www\test\mvc-php\src\Core\Router.php(49): call_user_func_array(Array, Array)
+#6 D:\wamp64\www\test\mvc-php\src\Core\Application.php(56): Core\Router->dispatch()
+#7 D:\wamp64\www\test\mvc-php\public\index.php(18): Core\Application->run()
+#8 {main}

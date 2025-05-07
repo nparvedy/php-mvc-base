@@ -1,5 +1,16 @@
 <?php
 return [
+    'app' => [
+        'name' => 'Mon Application MVC PHP',
+        'env' => 'development', // development, testing, production
+        'debug' => true,        // true pour afficher les erreurs détaillées, false pour la production
+        'secure_headers' => true,
+        'force_https' => false, // true pour forcer HTTPS en production
+        'timezone' => 'Europe/Paris',
+        'locale' => 'fr_FR',
+        'charset' => 'UTF-8'
+    ],
+    
     'routes' => [
         [
             'path' => '/',
@@ -37,5 +48,13 @@ return [
             'action' => 'store',
             'method' => 'POST'
         ]
+    ],
+    
+    'session' => [
+        'name' => 'mvc_session',
+        'lifetime' => 7200, // Durée en secondes
+        'secure' => false,  // true pour HTTPS uniquement
+        'httponly' => true,
+        'samesite' => 'Lax' // None, Lax ou Strict
     ]
 ];
