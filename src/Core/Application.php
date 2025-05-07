@@ -1,88 +1,223 @@
 <?php
 namespace Core;
 
+use Core\Middleware\MiddlewareManager;
+use Core\Auth\Auth;
+use Core\Migration\MigrationManager;
+
 class Application
 {
-    private $router;
-    private $request;
-    private $response;
-    private $config;
-    private $session;
-    private $security;
-    private $errorHandler;
+    /**
+     * Instance du conteneur d'injection de dépendances
+     * @var Container
+     */
+    protected $container;
 
+    /**
+     * Constructeur
+     *
+     * @param array $config Configuration de l'application
+     */
     public function __construct(array $config)
     {
-        $this->config = $config;
-        $this->request = new Request();
-        $this->response = new Response();
-        $this->router = new Router($this->request, $this->response);
-        $this->session = new Session();
-        $this->security = new Security();
+        // Initialiser le conteneur d'injection de dépendances
+        $this->container = new Container();
         
-        // Initialiser le gestionnaire d'erreurs
-        $debug = $config['app']['debug'] ?? true;
-        $this->errorHandler = new ErrorHandler($debug);
-        $this->errorHandler->register();
+        // Enregistrer la configuration dans le conteneur
+        $this->container->instance('config', $config);
         
-        // Ajouter les en-têtes de sécurité
-        if ($config['app']['secure_headers'] ?? true) {
-            $this->security->addSecurityHeaders();
-        }
+        // Définir les services de base en tant que singletons
+        $this->registerBaseServices();
         
-        // Forcer HTTPS en production
-        if (($config['app']['env'] ?? 'development') === 'production' && 
-            ($config['app']['force_https'] ?? false)) {
-            $this->security->enforceHttps();
-        }
+        // Configurer les services en fonction de la configuration
+        $this->configureServices();
     }
 
+    /**
+     * Exécuter l'application
+     * 
+     * @return mixed
+     */
     public function run()
     {
         try {
+            // Récupérer le router et charger les routes depuis la configuration
+            $router = $this->container->make('router');
+            $config = $this->container->make('config');
+            
             // Charger les routes depuis la configuration
-            if (isset($this->config['routes'])) {
-                foreach ($this->config['routes'] as $route) {
-                    $this->router->add(
+            if (isset($config['routes'])) {
+                foreach ($config['routes'] as $route) {
+                    $router->add(
                         $route['path'], 
                         $route['controller'], 
                         $route['action'], 
-                        $route['method'] ?? 'GET'
+                        $route['method'] ?? 'GET',
+                        $route['middleware'] ?? []
                     );
                 }
             }
 
-            // Dispatcher la requête
-            $this->router->dispatch();
+            // Dispatcher la requête à travers le gestionnaire de middleware
+            $middlewareManager = $this->container->make('middleware');
+            $request = $this->container->make('request');
+            $response = $this->container->make('response');
+            
+            // Obtenir le contrôleur et l'action du router
+            list($controller, $action, $params, $middleware) = $router->resolve();
+            
+            // Middleware spécifique à la route
+            $routeMiddleware = $middlewareManager->resolveMiddleware($middleware);
+            
+            // Créer la fonction finale (exécution du contrôleur)
+            $target = function ($request, $response) use ($controller, $action, $params) {
+                // Créer une instance du contrôleur avec le conteneur
+                $controllerInstance = $this->container->make($controller);
+                
+                // Exécuter l'action du contrôleur avec les paramètres
+                return call_user_func_array([$controllerInstance, $action], $params);
+            };
+            
+            // Exécuter les middleware avec la cible finale
+            return $middlewareManager->run($request, $response, $routeMiddleware, $target);
         } catch (\Exception $e) {
-            // Les exceptions seront interceptées par le gestionnaire d'erreurs
+            // Les erreurs seront interceptées par le gestionnaire d'erreurs
             throw $e;
         }
     }
     
     /**
-     * Récupérer un service de l'application
+     * Enregistrer les services de base
+     */
+    protected function registerBaseServices()
+    {
+        // Services de base
+        $this->container->singleton('request', Request::class);
+        $this->container->singleton('response', Response::class);
+        $this->container->singleton('session', Session::class);
+        $this->container->singleton('security', Security::class);
+        
+        // Router
+        $this->container->singleton('router', function ($container) {
+            return new Router(
+                $container->make('request'),
+                $container->make('response')
+            );
+        });
+        
+        // Gestionnaire de middleware
+        $this->container->singleton('middleware', function ($container) {
+            return new MiddlewareManager($container);
+        });
+        
+        // Moteur de templates
+        $this->container->singleton('view', function ($container) {
+            $config = $container->make('config');
+            $debug = ($config['app']['env'] ?? 'production') === 'development';
+            
+            return new TemplateEngine(
+                ROOT_PATH . '/src/Views',
+                ROOT_PATH . '/var/cache/views',
+                $debug
+            );
+        });
+        
+        // Base de données
+        $this->container->singleton('db', function ($container) {
+            $config = $container->make('config');
+            return Database::getInstance($config['database'] ?? []);
+        });
+        
+        // Gestionnaire d'erreurs
+        $this->container->singleton('errorHandler', function ($container) {
+            $config = $container->make('config');
+            $debug = $config['app']['debug'] ?? true;
+            
+            $errorHandler = new ErrorHandler($debug);
+            $errorHandler->register();
+            
+            return $errorHandler;
+        });
+        
+        // Authentification
+        $this->container->singleton('auth', function ($container) {
+            return new Auth(
+                $container->make('session'),
+                $container->make('security'),
+                '\Models\UserModel'
+            );
+        });
+        
+        // Gestionnaire de migrations
+        $this->container->singleton('migration', function ($container) {
+            return new MigrationManager(ROOT_PATH . '/src/Migrations');
+        });
+    }
+    
+    /**
+     * Configurer les services en fonction de la configuration
+     */
+    protected function configureServices()
+    {
+        $config = $this->container->make('config');
+        
+        // Configurer le gestionnaire de middleware
+        $middlewareManager = $this->container->make('middleware');
+        
+        // Ajouter les middleware globaux
+        if (isset($config['middleware']['global']) && is_array($config['middleware']['global'])) {
+            foreach ($config['middleware']['global'] as $middleware) {
+                $middlewareManager->add($middleware);
+            }
+        }
+        
+        // Ajouter les groupes de middleware
+        if (isset($config['middleware']['groups']) && is_array($config['middleware']['groups'])) {
+            foreach ($config['middleware']['groups'] as $name => $middleware) {
+                $middlewareManager->addGroup($name, $middleware);
+            }
+        }
+        
+        // Ajouter les middleware de routes
+        if (isset($config['middleware']['route']) && is_array($config['middleware']['route'])) {
+            foreach ($config['middleware']['route'] as $name => $middleware) {
+                $middlewareManager->addRoute($name, $middleware);
+            }
+        }
+        
+        // Configurer la sécurité
+        $security = $this->container->make('security');
+        
+        // Ajouter les en-têtes de sécurité si configuré
+        if ($config['app']['secure_headers'] ?? true) {
+            $security->addSecurityHeaders();
+        }
+        
+        // Forcer HTTPS en production si configuré
+        if (($config['app']['env'] ?? 'development') === 'production' && 
+            ($config['app']['force_https'] ?? false)) {
+            $security->enforceHttps();
+        }
+    }
+    
+    /**
+     * Récupérer un service du conteneur
      *
      * @param string $name Nom du service
      * @return mixed Instance du service
      */
     public function get($name)
     {
-        switch ($name) {
-            case 'request':
-                return $this->request;
-            case 'response':
-                return $this->response;
-            case 'router':
-                return $this->router;
-            case 'session':
-                return $this->session;
-            case 'security':
-                return $this->security;
-            case 'config':
-                return $this->config;
-            default:
-                throw new \InvalidArgumentException("Service '{$name}' non trouvé.");
-        }
+        return $this->container->make($name);
+    }
+    
+    /**
+     * Récupérer le conteneur d'injection de dépendances
+     *
+     * @return Container
+     */
+    public function getContainer()
+    {
+        return $this->container;
     }
 }

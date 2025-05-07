@@ -13,17 +13,24 @@ class Router
         $this->response = $response;
     }
 
-    public function add($path, $controller, $action, $method = 'GET')
+    public function add($path, $controller, $action, $method = 'GET', $middleware = [])
     {
         $this->routes[] = [
             'path' => $path,
             'controller' => $controller,
             'action' => $action,
-            'method' => $method
+            'method' => $method,
+            'middleware' => $middleware
         ];
     }
 
-    public function dispatch()
+    /**
+     * Résoudre la route correspondante et retourner les informations nécessaires
+     * 
+     * @return array [controller, action, params, middleware]
+     * @throws \Exception si aucune route ne correspond
+     */
+    public function resolve()
     {
         $uri = $this->request->getUri();
         $method = $this->request->getMethod();
@@ -41,19 +48,40 @@ class Router
             if (preg_match($pattern, $uri, $matches)) {
                 array_shift($matches); // Supprimer la première correspondance (l'URI complète)
                 
-                // Instancier le contrôleur
-                $controllerName = "Controllers\\" . $route['controller'];
-                $controller = new $controllerName($this->request, $this->response);
+                // Préparer les informations de la route
+                $controller = "Controllers\\" . $route['controller'];
+                $action = $route['action'];
+                $middleware = $route['middleware'] ?? [];
                 
-                // Appeler l'action avec les paramètres extraits
-                call_user_func_array([$controller, $route['action']], $matches);
-                return;
+                // Retourner les informations nécessaires pour traiter la route
+                return [$controller, $action, $matches, $middleware];
             }
         }
         
-        // Si aucune route ne correspond, retourner une erreur 404
-        $this->response->setStatusCode(404);
-        echo '404 - Page non trouvée';
+        // Si aucune route ne correspond, lancer une exception
+        throw new \Exception('Route non trouvée: ' . $uri, 404);
+    }
+
+    public function dispatch()
+    {
+        try {
+            list($controller, $action, $params, $middleware) = $this->resolve();
+            
+            // Instancier le contrôleur
+            $controllerInstance = new $controller($this->request, $this->response);
+            
+            // Appeler l'action avec les paramètres extraits
+            call_user_func_array([$controllerInstance, $action], $params);
+        } catch (\Exception $e) {
+            // Si l'erreur est 404, afficher une page 404
+            if ($e->getCode() === 404) {
+                $this->response->setStatusCode(404);
+                echo '404 - Page non trouvée';
+            } else {
+                // Sinon, propager l'exception
+                throw $e;
+            }
+        }
     }
 
     private function convertToRegex($path)

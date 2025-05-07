@@ -3,21 +3,64 @@ namespace Core;
 
 class Session
 {
+    /**
+     * Indique si la session est démarrée
+     * @var bool
+     */
+    private $started = false;
+
     public function __construct()
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            // Configurer les options de sécurité pour les cookies de session
-            session_set_cookie_params([
-                'lifetime' => 0,
-                'path' => '/',
-                'domain' => '',
-                'secure' => isset($_SERVER['HTTPS']),
-                'httponly' => true,
-                'samesite' => 'Lax'
-            ]);
-            
-            session_start();
+        // La session n'est plus démarrée automatiquement dans le constructeur
+        // pour permettre au middleware de gérer le cycle de vie de la session
+    }
+
+    /**
+     * Vérifier si la session est démarrée
+     *
+     * @return bool
+     */
+    public function isStarted()
+    {
+        return $this->started || session_status() === PHP_SESSION_ACTIVE;
+    }
+
+    /**
+     * Démarrer la session
+     *
+     * @return bool
+     */
+    public function start()
+    {
+        if ($this->isStarted()) {
+            return true;
         }
+
+        // Configurer les options de sécurité pour les cookies de session
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'domain' => '',
+            'secure' => isset($_SERVER['HTTPS']),
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+        
+        $this->started = session_start();
+        return $this->started;
+    }
+
+    /**
+     * Sauvegarder la session et envoyer les en-têtes
+     *
+     * @return bool
+     */
+    public function save()
+    {
+        if ($this->isStarted()) {
+            return session_write_close();
+        }
+        return false;
     }
 
     /**
@@ -82,7 +125,10 @@ class Session
             );
         }
 
-        session_destroy();
+        if ($this->isStarted()) {
+            session_destroy();
+            $this->started = false;
+        }
     }
 
     /**
@@ -92,7 +138,10 @@ class Session
      */
     public function regenerateId()
     {
-        return session_regenerate_id(true);
+        if ($this->isStarted()) {
+            return session_regenerate_id(true);
+        }
+        return false;
     }
 
     /**
