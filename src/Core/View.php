@@ -17,6 +17,17 @@ class View
     {
         $this->layout = $layout;
     }
+    
+    /**
+     * Génère une URL correcte avec le chemin de base de l'application
+     *
+     * @param string $path Le chemin relatif
+     * @return string L'URL complète
+     */
+    public function url($path = '')
+    {
+        return Helpers::url($path);
+    }
 
     public function render($template, array $data = [])
     {

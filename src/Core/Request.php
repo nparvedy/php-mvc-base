@@ -25,8 +25,20 @@ class Request
     private function parseUri()
     {
         $uri = $this->server['REQUEST_URI'] ?? '/';
-        $position = strpos($uri, '?');
         
+        // Supprimer le chemin de base (sous-dossier) de l'URI
+        $basePath = '/test/mvc-php/public';
+        if (strpos($uri, $basePath) === 0) {
+            $uri = substr($uri, strlen($basePath));
+        }
+        
+        // Si l'URI est vide après suppression du chemin de base, retourner '/'
+        if (empty($uri)) {
+            return '/';
+        }
+        
+        // Supprimer les paramètres de requête s'ils existent
+        $position = strpos($uri, '?');
         if ($position !== false) {
             $uri = substr($uri, 0, $position);
         }
