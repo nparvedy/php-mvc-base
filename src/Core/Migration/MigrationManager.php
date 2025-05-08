@@ -237,7 +237,18 @@ class MigrationManager
      */
     private function getMigrationClassName($migrationName)
     {
-        require_once $this->migrationsPath . '/' . $migrationName . '.php';
+        $migrationFile = $this->migrationsPath . '/' . $migrationName . '.php';
+        
+        // Charger le contenu du fichier de migration
+        require_once $migrationFile;
+        
+        // Si le fichier a un préfixe "Migration_" dans la classe
+        $className = 'Migration_' . $migrationName;
+        if (class_exists('\\Migrations\\' . $className)) {
+            return '\\Migrations\\' . $className;
+        }
+        
+        // Sinon, utiliser le nom original
         return '\\Migrations\\' . $migrationName;
     }
     
@@ -299,5 +310,31 @@ class ' . $className . ' extends Migration
         $this->db->execute($sql);
     }
 }';
+    }
+    
+    /**
+     * Obtenir le statut des migrations
+     *
+     * @return array Tableau contenant les migrations exécutées et en attente
+     */
+    public function status()
+    {
+        // Récupérer les migrations déjà exécutées
+        $executedMigrations = $this->getExecutedMigrations();
+        
+        // Récupérer toutes les migrations disponibles
+        $availableMigrations = $this->getAvailableMigrations();
+        
+        // Déterminer les migrations en attente
+        $pendingMigrations = array_diff($availableMigrations, $executedMigrations);
+        
+        // Trier les migrations
+        sort($pendingMigrations);
+        sort($executedMigrations);
+        
+        return [
+            'executed' => $executedMigrations,
+            'pending' => $pendingMigrations
+        ];
     }
 }

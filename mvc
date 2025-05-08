@@ -1,0 +1,53 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Point d'entrée pour les commandes CLI du framework MVC
+ */
+
+// Définir le chemin racine de l'application
+define('ROOT_PATH', __DIR__);
+
+// Charger l'autoloader
+require_once ROOT_PATH . '/src/Core/Autoloader.php';
+
+// Enregistrer l'autoloader
+use Core\Autoloader;
+Autoloader::register();
+
+// Charger la configuration
+$config = require ROOT_PATH . '/config/config.php';
+
+// Créer une instance de l'application
+$app = new Core\Application($config);
+
+// Récupérer le conteneur
+$container = $app->getContainer();
+
+// Traiter les arguments de la commande
+$args = array_slice($argv, 1);
+
+if (empty($args)) {
+    echo "Usage: php mvc [command] [options]\n\n";
+    echo "Commandes disponibles :\n";
+    echo "  migrate : Gérer les migrations de base de données\n";
+    exit(1);
+}
+
+$command = array_shift($args);
+
+switch ($command) {
+    case 'migrate':
+        $migrationManager = $container->make('migration');
+        $migrateCommand = new CLI\MigrateCommand($migrationManager);
+        $migrateCommand->setArgs($args)->execute();
+        break;
+    
+    // Autres commandes à ajouter ici
+    
+    default:
+        echo "Commande non reconnue : {$command}\n";
+        echo "Exécutez 'php mvc' pour voir la liste des commandes disponibles.\n";
+        exit(1);
+}
+
+exit(0);

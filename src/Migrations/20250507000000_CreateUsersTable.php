@@ -10,10 +10,11 @@ class Migration_20250507000000_CreateUsersTable extends Migration
      */
     public function up()
     {
+        // Première étape : Créer la table sans l'index UNIQUE
         $sql = "CREATE TABLE IF NOT EXISTS users (
             id INT AUTO_INCREMENT PRIMARY KEY,
             name VARCHAR(255) NOT NULL,
-            email VARCHAR(255) NOT NULL UNIQUE,
+            email VARCHAR(191) NOT NULL,
             password VARCHAR(255) NOT NULL,
             roles VARCHAR(255) NULL,
             permissions VARCHAR(255) NULL,
@@ -23,6 +24,9 @@ class Migration_20250507000000_CreateUsersTable extends Migration
         )";
         
         $this->db->execute($sql);
+        
+        // Deuxième étape : Ajouter l'index UNIQUE sur email avec une longueur limitée
+        $this->db->execute("ALTER TABLE users ADD UNIQUE INDEX idx_users_email (email)");
     }
 
     /**
