@@ -55,4 +55,17 @@ class Database
     {
         return $this->pdo->lastInsertId();
     }
+    
+    /**
+     * Empêche le clonage de l'instance
+     */
+    private function __clone() {}
+
+    /**
+     * Empêche la désérialisation de l'instance
+     */
+    public function __wakeup()
+    {
+        throw new \Exception("Cannot unserialize singleton");
+    }
 }
