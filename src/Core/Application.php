@@ -4,6 +4,7 @@ namespace Core;
 use Core\Middleware\MiddlewareManager;
 use Core\Auth\Auth;
 use Core\Migration\MigrationManager;
+use Core\Event\EventDispatcher;
 
 class Application
 {
@@ -126,6 +127,11 @@ class Application
         $this->container->singleton('db', function ($container) {
             $config = $container->make('config');
             return Database::getInstance($config['database'] ?? []);
+        });
+        
+        // Gestionnaire d'événements
+        $this->container->singleton('events', function ($container) {
+            return new EventDispatcher($container);
         });
         
         // Gestionnaire d'erreurs

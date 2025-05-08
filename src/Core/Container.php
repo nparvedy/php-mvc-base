@@ -16,6 +16,26 @@ class Container
     protected $instances = [];
     
     /**
+     * Instance unique du conteneur (singleton)
+     * @var Container
+     */
+    protected static $instance;
+    
+    /**
+     * Récupérer l'instance unique du conteneur
+     *
+     * @return Container
+     */
+    public static function getInstance()
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        
+        return self::$instance;
+    }
+    
+    /**
      * Enregistrer un service dans le conteneur
      *
      * @param string $abstract Identifiant du service

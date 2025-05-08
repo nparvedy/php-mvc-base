@@ -3,7 +3,7 @@ namespace Migrations;
 
 use Core\Migration\Migration;
 
-class 20250507000000_CreateUsersTable extends Migration
+class Migration_20250507000000_CreateUsersTable extends Migration
 {
     /**
      * Exécuter la migration

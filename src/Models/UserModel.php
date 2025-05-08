@@ -3,6 +3,8 @@ namespace Models;
 
 use Core\Model;
 use Core\Security;
+use Events\UserRegisteredEvent;
+use Core\Container;
 
 class UserModel extends Model
 {
@@ -68,7 +70,22 @@ class UserModel extends Model
         
         $this->db->execute($sql, $data);
         
-        return $this->db->lastInsertId();
+        $userId = $this->db->lastInsertId();
+        
+        // Récupérer l'utilisateur nouvellement créé
+        $user = $this->findById($userId);
+        
+        // Émettre un événement d'inscription utilisateur
+        if ($user) {
+            $container = Container::getInstance();
+            
+            if ($container->has('events')) {
+                $events = $container->make('events');
+                $events->dispatch(new UserRegisteredEvent($user));
+            }
+        }
+        
+        return $userId;
     }
     
     /**
@@ -254,5 +271,25 @@ class UserModel extends Model
         }
         
         return true;
+    }
+    
+    /**
+     * Obtenir le nom d'utilisateur
+     *
+     * @return string
+     */
+    public function getUsername()
+    {
+        return $this->name ?? '';
+    }
+    
+    /**
+     * Obtenir l'email de l'utilisateur
+     *
+     * @return string
+     */
+    public function getEmail()
+    {
+        return $this->email ?? '';
     }
 }
